@@ -1,0 +1,17 @@
+{
+  "name": "Velicham Tharaam",
+  "short_name": "Velicham",
+  "description": "Community power outage reporting and synchronized physical flashlight signaling",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "/flashlight.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#090d16] text-slate-100 min-h-screen font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom styles for Leaflet */
+.leaflet-container {
+  font-family: inherit;
+  width: 100%;
+  height: 100%;
+  background: #090d16 !important;
+}
+
+.custom-leaflet-popup .leaflet-popup-content-wrapper {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+.custom-leaflet-popup .leaflet-popup-tip {
+  background: #ffffff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c1220;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
