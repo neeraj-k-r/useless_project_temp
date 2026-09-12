@@ -35,3 +35,6 @@ android/capacitor-cordova-android-plugins/build
 android/local.properties
 *.apk
 *.aab
+
+# Firebase web config (local only; values are public but not committed)
+.env

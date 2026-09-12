@@ -39,7 +39,7 @@ const SHARED = args.includes('--shared');
 const TIMEOUT_MS = 15000;
 const RUN_ID = 'stress_' + Date.now();
 const TEST_EMAIL = `stress_${RUN_ID}@velichamtest.in`;
-const TEST_PASSWORD = 'VelichamStress!2026';
+const TEST_PASSWORD = 'Vt!' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 
 async function ensureAuthAccount(auth) {
   try {
