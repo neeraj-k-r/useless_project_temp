@@ -1,4 +1,4 @@
-import { BackgroundTorchNative, isNativePlatform } from '../capacitor/backgroundTorch';
+import { BackgroundTorchNative, isNativePlatform, BackgroundTorchStatus } from '../capacitor/backgroundTorch';
 
 /**
  * Controls the native Android foreground torch service.
@@ -28,6 +28,15 @@ export async function isBackgroundTorchRunning(): Promise<boolean> {
     return !!r.running;
   } catch (e) {
     return false;
+  }
+}
+
+export async function getBackgroundTorchStatus(): Promise<BackgroundTorchStatus> {
+  if (!isNativePlatform()) return { running: false, lastAction: '', lastError: '', torchOn: false };
+  try {
+    return await BackgroundTorchNative.getStatus();
+  } catch (e) {
+    return { running: false, lastAction: '', lastError: '', torchOn: false };
   }
 }
 

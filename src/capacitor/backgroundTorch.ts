@@ -5,6 +5,14 @@ export interface BackgroundTorchPlugin {
   stop(): Promise<void>;
   setForeground(options: { foreground: boolean }): Promise<void>;
   isRunning(): Promise<{ running: boolean }>;
+  getStatus(): Promise<{ running: boolean; lastAction: string; lastError: string; torchOn: boolean }>;
+}
+
+export interface BackgroundTorchStatus {
+  running: boolean;
+  lastAction: string;
+  lastError: string;
+  torchOn: boolean;
 }
 
 const webImpl: BackgroundTorchPlugin = {
@@ -12,6 +20,7 @@ const webImpl: BackgroundTorchPlugin = {
   stop: async () => undefined,
   setForeground: async () => undefined,
   isRunning: async () => ({ running: false }),
+  getStatus: async () => ({ running: false, lastAction: '', lastError: '', torchOn: false }),
 };
 
 export const BackgroundTorchNative =

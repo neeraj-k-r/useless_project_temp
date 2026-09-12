@@ -35,16 +35,35 @@ export function App() {
     // subscribe to Capacitor's appStateChange.
     const setFg = (fg: boolean) => syncForegroundState(fg);
     setFg(true);
-    const onVisibility = () => setFg(document.visibilityState === 'visible');
-    const sub = CapApp.addListener('appStateChange', (state) => setFg(state.isActive));
+    const onVisibility = () => {
+      const visible = document.visibilityState === 'visible';
+      setFg(visible);
+      if (!visible) {
+        // The web layer cannot flash while hidden; it must also hand the
+        // camera back, otherwise the native service gets CAMERA_IN_USE.
+        try { torchService.releaseTorch(); } catch {}
+      }
+    };
+    const onHide = () => {
+      setFg(false);
+      try { torchService.releaseTorch(); } catch {}
+    };
+    const sub = CapApp.addListener('appStateChange', (state) => {
+      setFg(state.isActive);
+      if (!state.isActive) {
+        try { torchService.releaseTorch(); } catch {}
+      }
+    });
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', () => setFg(true));
     window.addEventListener('blur', () => setFg(false));
+    window.addEventListener('pagehide', onHide);
     return () => {
       sub?.then((s) => s.remove());
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', () => setFg(true));
       window.removeEventListener('blur', () => setFg(false));
+      window.removeEventListener('pagehide', onHide);
     };
   }, []);
 

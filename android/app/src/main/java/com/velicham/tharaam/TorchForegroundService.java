@@ -59,12 +59,18 @@ public class TorchForegroundService extends Service {
     public static volatile boolean foregroundApp = false;
     private static AtomicBoolean alive = new AtomicBoolean(false);
 
+    private static volatile String sLastAction = "idle";
+    private static volatile String sLastError = "";
+    private static volatile boolean sTorchOn = false;
+    private static volatile long sLastEventAt = 0L;
+
     private HandlerThread thread;
     private Handler handler;
     private PowerManager.WakeLock wakeLock;
     private CameraManager cameraManager;
     private String flashCameraId = null;
     private volatile boolean hardwareTorchOn = false;
+    private volatile boolean pendingSolidOn = false;
 
     private final Set<String> processedIds = new HashSet<>();
     private long lastSeenMs = 0L;
@@ -87,6 +93,16 @@ public class TorchForegroundService extends Service {
     public static boolean isRunning() {
         return alive.get();
     }
+
+    public static String status() {
+        return "action=" + sLastAction + " torchOn=" + sTorchOn + " err='" + sLastError + "'";
+    }
+
+    public static String lastAction() { return sLastAction; }
+
+    public static String lastError() { return sLastError; }
+
+    public static boolean torchState() { return sTorchOn; }
 
     @Override
     public void onCreate() {
@@ -279,6 +295,10 @@ public class TorchForegroundService extends Service {
         trimProcessed();
         getPrefs().edit().putStringSet("processed", new HashSet<>(processedIds)).apply();
 
+        if (pendingSolidOn && !hardwareTorchOn && !foregroundApp) {
+            if (torchOn()) pendingSolidOn = false;
+        }
+
         if (hardwareTorchOn && System.currentTimeMillis() - lastSolidAt > AUTO_OFF_MS) {
             torchOff();
         }
@@ -292,6 +312,13 @@ public class TorchForegroundService extends Service {
     }
 
     private void handleEvent(TorchEventView ev) {
+        sLastEventAt = ev.createdAt;
+        sLastAction = ev.action == null ? "SOLID_ON" : ev.action;
+        if (ev.communityId != null && !ev.communityId.isEmpty()) {
+            sLastAction += "[" + ev.communityId + "]";
+        }
+        sLastError = "";
+
         if (foregroundApp) {
             // WebView is active — let the web layer flash the screen/torch.
             if ("TORCH_OFF".equals(ev.action)) torchOff();
@@ -299,6 +326,7 @@ public class TorchForegroundService extends Service {
         }
         String action = ev.action == null ? "SOLID_ON" : ev.action;
         if ("TORCH_OFF".equals(action)) {
+            pendingSolidOn = false;
             torchOff();
             return;
         }
@@ -306,7 +334,7 @@ public class TorchForegroundService extends Service {
         if ("3_BLINKS".equals(pattern) || "BLINK_THEN_ON".equals(action)) {
             blinkThenSolid();
         } else {
-            torchOn();
+            if (!torchOn()) pendingSolidOn = true;
         }
     }
 
@@ -332,37 +360,55 @@ public class TorchForegroundService extends Service {
         return null;
     }
 
-    private void torchOn() {
-        if (flashCameraId == null || hardwareTorchOn) return;
+    private boolean torchOn() {
+        if (flashCameraId == null) {
+            sLastError = "no flash camera found";
+            return false;
+        }
+        if (hardwareTorchOn) return true;
         try {
             cameraManager.setTorchMode(flashCameraId, true);
             hardwareTorchOn = true;
+            sTorchOn = true;
             lastSolidAt = System.currentTimeMillis();
+            sLastError = "";
+            return true;
         } catch (Exception e) {
+            sLastError = e.getMessage();
             Log.w(TAG, "torchOn failed: " + e.getMessage());
+            return false;
         }
     }
 
     private void torchOff() {
+        pendingSolidOn = false;
         if (flashCameraId == null) return;
         try {
             cameraManager.setTorchMode(flashCameraId, false);
         } catch (Exception ignored) {
         }
         hardwareTorchOn = false;
+        sTorchOn = false;
     }
 
     private void blinkThenSolid() {
+        if (!torchOn()) {
+            pendingSolidOn = true;
+            return;
+        }
         try {
             for (int i = 0; i < 3 && alive.get(); i++) {
-                torchOn();
                 Thread.sleep(450);
                 torchOff();
                 Thread.sleep(220);
+                if (!torchOn()) {
+                    pendingSolidOn = true;
+                    return;
+                }
             }
         } catch (InterruptedException ignored) {
         }
-        if (alive.get()) torchOn();
+        if (alive.get() && !foregroundApp) torchOn();
     }
 
     private void trimProcessed() {

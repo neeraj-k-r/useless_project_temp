@@ -76,4 +76,14 @@ public class TorchPlugin extends Plugin {
         result.put("running", TorchForegroundService.isRunning());
         call.resolve(result);
     }
+
+    @PluginMethod
+    public void getStatus(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("running", TorchForegroundService.isRunning());
+        result.put("lastAction", TorchForegroundService.lastAction());
+        result.put("lastError", TorchForegroundService.lastError());
+        result.put("torchOn", TorchForegroundService.torchState());
+        call.resolve(result);
+    }
 }
