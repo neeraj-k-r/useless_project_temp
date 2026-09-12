@@ -58,7 +58,7 @@ Open `http://localhost:5173` on your browser or phone on the same local network 
 For Software:
 
 
-# Screenshots (Add at least 3)
+# Screenshots 
 ![Screenshot1](https://drive.google.com/uc?export=view&id=1TTEchLSRSWM2Cw6S3BIVRL-7vgNKJJjm)
 *User Dashboard*
 
