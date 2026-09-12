@@ -60,8 +60,8 @@ For Software:
 *Add caption explaining what this shows*
 
 # Diagrams
-![Workflow](Add your workflow/architecture diagram here)
-*Add caption explaining your workflow*
+![Workflow](assets/workflow.svg)
+*Outage report → realtime consensus → synchronized torch flash, and the power-restore path*
 
 ### Project Demo
 # Video
