@@ -1,88 +1,82 @@
+<img width="1280" height="640" alt="git (1)" src="https://github.com/user-attachments/assets/8920b256-2ba8-4988-b824-5351134eb4bd" />
+
+
+
 # VELICHAM THARAAM 🔦
-> **“Current poyaalum, nammal velicham tharaam.”**
 
-A civic-tech hackathon MVP that turns smartphones into a decentralized emergency lighting network during Kerala power cuts.
 
----
+## Basic Details
+### Team Name: VELICHAM THARAAM
 
-## ⚡ Problem & Solution
 
-* **Problem:** When electricity goes out, residents don't know whether the outage is only in their house (blown fuse / trip switch) or across the locality (transformer / substation fault).
-* **Solution:** 
-  1. Nearby residents tap **🔴 CURRENT POYI**.
-  2. Distinct reports within a 5-minute sliding window trigger **Realtime Consensus**.
-  3. Once confirmed (e.g. 3 residents), the system verifies the outage.
-  4. Connected smartphones execute a synchronized physical flashlight signal: **Blink × 3 (400ms) → Solid ON**.
-  5. When power returns, residents tap **🟢 CURRENT VANNU** or the KSEB Controller restores power → **All flashlights turn OFF**.
+### Team Members
+- Team Lead: Neeraj K R - [College]
+- Member 2: Rajaram R S - [College]
 
----
+### Project Description
+A civic-tech hackathon MVP that turns smartphones into a decentralized emergency lighting network during Kerala power cuts. Residents report outages, nearby neighbours verify them in real time, and every connected phone flashes its torch in sync so the whole locality lights up together.
 
-## 🛠 Tech Stack
+### The Problem (that doesn't exist)
+When the electricity goes out, nobody knows whether it's just your house (a blown fuse / tripped switch) or the entire locality (transformer / substation fault). The only "anonymous survey" available is knocking on your neighbours' doors in the dark.
 
-* **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS
-* **Mapping:** Leaflet + OpenStreetMap (Kerala / Ernakulam focus)
-* **Realtime & Auth:** Firebase Authentication + Firestore / Realtime Database + Multi-tab BroadcastChannel sync
-* **Flashlight / Torch:** Web MediaStream API (`navigator.mediaDevices.getUserMedia` with `advanced: [{ torch: true }]`) + high-candela screen beacon fallback
-* **Audio Synthesis:** Web Audio API synth tones for emergency alerts and restoration chimes
-* **Icons:** Lucide React
+### The Solution (that nobody asked for)
+Tap **🔴 CURRENT POYI**, your neighbours confirm the outage within a 5-minute window, and every phone in the community triggers a synchronized physical flashlight signal — Blink × 3 → Solid ON. A flashlight network you didn't know you needed until the power went out.
 
----
+## Technical Details
+### Technologies/Components Used
+For Software:
+- React 19 + TypeScript + Vite + Tailwind CSS
+- Leaflet + OpenStreetMap (Kerala / Ernakulam focus)
+- Firebase Authentication + Firestore / Realtime Database + multi-tab BroadcastChannel sync
+- Web MediaStream API (`navigator.mediaDevices.getUserMedia` with `advanced: [{ torch: true }]`) + high-candela screen beacon fallback
+- Web Audio API synth tones for emergency alerts and restoration chimes
+- Lucide React icons
 
-## 🚀 Quick Start
-
-### 1. Install & Run Dev Server
-
+### Implementation
+For Software:
+# Installation
 ```bash
 npm install
+```
+
+# Run
+```bash
 npm run dev
 ```
 
 Open `http://localhost:5173` on your browser or phone on the same local network (`http://<YOUR_IP>:5173`).
 
----
+### Project Documentation
+For Software:
 
-## 🎥 Demo / Review Video
+# Screenshots (Add at least 3)
+![Screenshot1](Add screenshot 1 here with proper name)
+*Add caption explaining what this shows*
 
-Watch the full walkthrough of Velicham Tharaam in action:
+![Screenshot2](Add screenshot 2 here with proper name)
+*Add caption explaining what this shows*
 
-* [Demo & UI Review — screen recording](https://drive.google.com/file/d/10WztcHzcPKLiNSdlvSNPsdHi_Ay9Fns7/view?usp=sharing)
+![Screenshot3](Add screenshot 3 here with proper name)
+*Add caption explaining what this shows*
 
----
+# Diagrams
+![Workflow](Add your workflow/architecture diagram here)
+*Add caption explaining your workflow*
 
-## 📱 Hackathon Presentation Demo Script
+### Project Demo
+# Video
+[Demo & UI Review — screen recording](https://drive.google.com/file/d/10WztcHzcPKLiNSdlvSNPsdHi_Ay9Fns7/view?usp=sharing)
+*Walkthrough of the outage-report → consensus → synchronized flashlight blink flow*
 
-### Quick Demo Switcher (Top of UI)
-The top switcher lets you instantly switch between demo personas:
-- **Resident A (Rahul)** - House #12
-- **Resident B (Anjali)** - Apt 4B
-- **Resident C (Faizal)** - Shop 1
-- **⚡ Controller** - KSEB Area Dispatcher
+# Additional Demos
+- Live app: https://velicham-tharaam-ad249.web.app
 
-### Live 3-Phone Presentation Flow
-1. Open the app on **3 Android phones** or 3 browser windows.
-2. Ensure they are in the same community (e.g. **Kakkanad**).
-3. Tap **Enable Flashlight** on the phones.
-4. **Phone A:** Tap **🔴 CURRENT POYI** → consensus meter shows `1 / 3`.
-5. **Phone B:** Tap **🔴 CURRENT POYI** → consensus meter shows `2 / 3`.
-6. **Phone C:** Tap **🔴 CURRENT POYI** → consensus meter hits `3 / 3`!
-7. **💥 Magic Moment:**
-   - Outage is **VERIFIED**.
-   - Sound alert plays.
-   - All connected phones physically **Blink 3 times (400ms) and stay Solid ON**!
-8. Tap **🟢 CURRENT VANNU** or use the **Controller Dashboard** (`Restore Power`) → **All flashlights turn OFF**.
+## Team Contributions
+- Neeraj K R: App architecture, Firebase realtime consensus & auth, torch / blink synchronization, backend services
+- Rajaram R S: UI/UX design, community & outage services, Android integration
 
 ---
+Made with ❤️ at TinkerHub Useless Projects 
 
-## 🔒 Privacy & Torch Safety
-
-* **No camera recordings or photos:** Camera hardware is accessed solely to toggle the rear LED torch via media stream track constraints.
-* **No exact GPS:** Coordinates are never gathered or stored; only community-level centroids (Kakkanad, Edappally, Aluva, Vyttila, Kalamassery, Thrippunithura) are mapped.
-* **Turn Off Button:** Every screen includes an immediate "Turn Off My Flashlight" override.
-
----
-
-## 🏛 Firebase Rules & Deployment
-
-Security rules are located at `src/firebase/firestore.rules`.
-Configure your `.env` from `.env.example` to attach to your Firebase project.
-Even without Firebase API keys, the app runs with full multi-tab realtime synchronization.
+![Static Badge](https://img.shields.io/badge/TinkerHub-24?color=%23000000&link=https%3A%2F%2Fwww.tinkerhub.org%2F)
+![Static Badge](https://img.shields.io/badge/UselessProjects--26-26?link=https%3A%2F%2Ftinkerhub.org%2Fevents%2F1M8ORET9A1%2Fuseless-projects-3.0)
