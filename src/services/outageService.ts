@@ -20,6 +20,7 @@ import {
   ReportType 
 } from '../types';
 import { communityService } from './communityService';
+import { authService } from './authService';
 import { torchService } from '../torch/torchService';
 import { sounds } from '../utils/sound';
 
@@ -119,9 +120,13 @@ class OutageService {
           }
         }, (err) => console.warn('Torch signal listener error:', err));
 
-        // Listen to torch events collection
+        // Listen to torch events collection (last 10 min only — same window the handler enforces)
         const torchCol = collection(db, 'torchEvents');
-        onSnapshot(torchCol, (snap) => {
+        const recentTorchQ = query(
+          torchCol,
+          where('createdAt', '>=', Date.now() - 600000)
+        );
+        onSnapshot(recentTorchQ, (snap) => {
           snap.docChanges().forEach(change => {
             if (change.type === 'added') {
               const data = change.doc.data() as TorchEvent;
@@ -594,44 +599,41 @@ class OutageService {
     // Notify listeners
     this.torchEventListeners.forEach(fn => fn(event));
 
-    // Execute physical hardware torch sequence locally if matching target location!
+    // Determine THIS device's identity: prefer the signed-in profile of this
+    // tab/session, falling back to the shared profile used for cross-tab sync.
+    // Using the per-tab session (not raw localStorage) is critical: multiple tabs
+    // in the same browser share localStorage, so a Controller login elsewhere must
+    // NOT turn every other tab into a "controller device" that ignores signals.
+    const sessionProfile = authService.getCurrentUser();
     const activeUser = localStorage.getItem('vt_active_user_profile');
-    let userRole = 'USER';
-    let userCommunityId = 'kakkanad';
+    let storedProfile: ({ role?: string; communityId?: string; localityName?: string }) | null = null;
     if (activeUser) {
       try {
-        const parsed = JSON.parse(activeUser);
-        userRole = parsed.role || 'USER';
-        userCommunityId = parsed.communityId || 'kakkanad';
+        storedProfile = JSON.parse(activeUser);
       } catch (e) {}
     }
+    const profile = sessionProfile || storedProfile || null;
+
+    const isControllerDevice = Boolean(
+      profile?.role === 'CONTROLLER' ||
+      (!sessionProfile && storedProfile?.role === 'CONTROLLER')
+    );
 
     const targetId = (event.communityId || '').toLowerCase().trim();
     const isAll = targetId === 'all' || targetId === 'global' || targetId === '' || !event.communityId;
-    const userCommId = (userCommunityId || '').toLowerCase().trim();
-    let isTargetCommunity = isAll || 
-                            targetId === userCommId ||
-                            userCommId.includes(targetId) ||
-                            targetId.includes(userCommId);
+    const userCommId = (profile?.communityId || 'kakkanad').toLowerCase().trim();
+    const locName = (profile?.localityName || '').toLowerCase().trim();
 
-    if (!isTargetCommunity && activeUser) {
-      try {
-        const parsed = JSON.parse(activeUser);
-        const locName = (parsed.localityName || '').toLowerCase().trim();
-        if (locName && (locName === targetId || targetId.includes(locName) || locName.includes(targetId))) {
-          isTargetCommunity = true;
-        }
-      } catch (e) {}
-    }
+    const isTargetCommunity = isAll ||
+      targetId === userCommId ||
+      userCommId.includes(targetId) ||
+      targetId.includes(userCommId) ||
+      (locName && (locName === targetId || targetId.includes(locName) || locName.includes(targetId)));
 
-    const isControllerTab = typeof window !== 'undefined' && 
-      ((window as any).__CURRENT_TAB__ === 'controller' || 
-       (window as any).__IS_CONTROLLER_PAGE__ === true || 
-       window.location.pathname.includes('/controller') || 
-       window.location.hash.includes('controller'));
-
-    // Physical torch & screen strobe & audio alert trigger on citizen devices
-    if (!isControllerTab && isTargetCommunity) {
+    // Physical torch & screen strobe & audio alert trigger on citizen devices.
+    // Only the device of a CONTROLLER session skips flashing — a citizen responds
+    // even if they happen to be browsing a Controller page.
+    if (!isControllerDevice && isTargetCommunity) {
       if (event.action === 'BLINK_THEN_ON') {
         sounds.playOutageAlert();
         torchService.blinkThenSolidOn(3, 400);

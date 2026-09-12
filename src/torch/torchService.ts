@@ -14,6 +14,7 @@ class TorchService {
   private isHardwareSupported: boolean | null = null;
   private permissionGranted: boolean = false;
   private activeSequenceId: number = 0;
+  private wakeLock: any = null;
   private listeners: Set<TorchStateListener> = new Set();
 
   /**
@@ -27,6 +28,32 @@ class TorchService {
 
   private notify() {
     this.listeners.forEach(fn => fn(this.isTorchOnState, this.isBlinkingState, this.isHardwareSupported ?? false));
+  }
+
+  /**
+   * Keep the screen awake while the torch/beacon is active so the LED + screen
+   * flash remain visible on mobile (phones would otherwise go to sleep mid-demo).
+   */
+  private async acquireWakeLock() {
+    try {
+      const wl = (navigator as any).wakeLock;
+      if (wl && !this.wakeLock) {
+        this.wakeLock = await wl.request('screen');
+        this.wakeLock.addEventListener('release', () => {
+          if (this.wakeLock === null) return;
+          this.wakeLock = null;
+        });
+      }
+    } catch (e) {}
+  }
+
+  private async releaseWakeLock() {
+    try {
+      if (this.wakeLock) {
+        await this.wakeLock.release();
+        this.wakeLock = null;
+      }
+    } catch (e) {}
   }
 
   /**
@@ -108,6 +135,7 @@ class TorchService {
     this.isBlinkingState = false;
     this.isTorchOnState = true;
     this.notify();
+    this.acquireWakeLock();
 
     if (this.videoTrack && this.videoTrack.readyState === 'live') {
       try {
@@ -138,6 +166,7 @@ class TorchService {
     this.isBlinkingState = false;
     this.isTorchOnState = false;
     this.notify();
+    this.releaseWakeLock();
 
     try {
       if (this.videoTrack && this.videoTrack.readyState === 'live') {
@@ -180,6 +209,7 @@ class TorchService {
         await this.requestTorchAccess();
       } catch (e) {}
     }
+    this.acquireWakeLock();
 
     const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -218,6 +248,7 @@ class TorchService {
   public releaseTorch(): void {
     this.activeSequenceId++;
     this.turnTorchOff();
+    this.releaseWakeLock();
     if (this.videoTrack) {
       this.videoTrack.stop();
       this.videoTrack = null;

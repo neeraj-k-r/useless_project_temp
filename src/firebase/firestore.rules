@@ -61,5 +61,10 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update, delete: if isController();
     }
+
+    // System collection — realtime torch-signal documents (torchSignal, etc.)
+    match /system/{docId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

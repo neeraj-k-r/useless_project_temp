@@ -11,7 +11,9 @@ import { CommunitySelector } from './components/CommunitySelector';
 import { useAuth } from './hooks/useAuth';
 import { useCommunity } from './hooks/useCommunity';
 import { useTorch } from './hooks/useTorch';
+import { App as CapApp } from '@capacitor/app';
 import { torchService } from './torch/torchService';
+import { syncForegroundState } from './services/backgroundTorch';
 import { Home as HomeIcon, Map as MapIcon, Shield } from 'lucide-react';
 
 export function App() {
@@ -26,6 +28,25 @@ export function App() {
   useEffect(() => {
     (window as any).__CURRENT_TAB__ = currentTab;
   }, [currentTab]);
+
+  useEffect(() => {
+    // Tell the native background service whether the app is foregrounded.
+    // visibilitychange alone is unreliable in an Android WebView, so also
+    // subscribe to Capacitor's appStateChange.
+    const setFg = (fg: boolean) => syncForegroundState(fg);
+    setFg(true);
+    const onVisibility = () => setFg(document.visibilityState === 'visible');
+    const sub = CapApp.addListener('appStateChange', (state) => setFg(state.isActive));
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', () => setFg(true));
+    window.addEventListener('blur', () => setFg(false));
+    return () => {
+      sub?.then((s) => s.remove());
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', () => setFg(true));
+      window.removeEventListener('blur', () => setFg(false));
+    };
+  }, []);
 
   useEffect(() => {
     const onFirstUserAction = () => {

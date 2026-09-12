@@ -8,17 +8,13 @@ interface VisualTorchOverlayProps {
   isControllerTab?: boolean;
 }
 
-export const VisualTorchOverlay: React.FC<VisualTorchOverlayProps> = ({ isControllerTab }) => {
+export const VisualTorchOverlay: React.FC<VisualTorchOverlayProps> = () => {
   const { isOn, isBlinking, turnOff } = useTorch();
   const { currentCommunity } = useCommunity();
-  const isController = isControllerTab || 
-    (typeof window !== 'undefined' && 
-      ((window as any).__CURRENT_TAB__ === 'controller' || 
-       (window as any).__IS_CONTROLLER_PAGE__ === true || 
-       window.location.pathname.includes('/controller') || 
-       window.location.hash.includes('controller')));
+  const { user } = useAuth();
+  const isControllerView = user?.role === 'CONTROLLER';
 
-  if (isController || (!isOn && !isBlinking)) return null;
+  if (isControllerView || (!isOn && !isBlinking)) return null;
 
   return (
     <div 

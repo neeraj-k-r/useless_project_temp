@@ -3,6 +3,7 @@ import { Flashlight, Shield, User, MapPin, Zap, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useCommunity } from '../hooks/useCommunity';
 import { useTorch } from '../hooks/useTorch';
+import { BackgroundTorchToggle } from './BackgroundTorchToggle';
 
 interface HeaderProps {
   currentTab: 'home' | 'controller' | 'map';
@@ -64,6 +65,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Navigation & Controls */}
         <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* Background torch service (native Android only) */}
+          <BackgroundTorchToggle communityId={currentCommunity.id} />
+
           {/* Community Pill */}
           <button
             onClick={onOpenCommunityModal}
