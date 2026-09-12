@@ -8,7 +8,8 @@ import {
   where, 
   orderBy, 
   limit, 
-  getDocs 
+  getDocs,
+  deleteDoc 
 } from 'firebase/firestore';
 import { ref, set as rtdbSet, onValue as rtdbOnValue } from 'firebase/database';
 import { db, rtdb, isLiveFirebaseConfigured } from '../firebase/config';
@@ -40,6 +41,7 @@ class OutageService {
   private torchEventListeners: Set<(event: TorchEvent) => void> = new Set();
   private broadcastChannel: BroadcastChannel | null = null;
   private processedTorchEventIds: Set<string> = new Set();
+  private sweepTimer: any = null;
 
   constructor() {
     this.loadInitialStorage();
@@ -159,6 +161,39 @@ class OutageService {
         console.warn('Firestore live listener notice:', e);
       }
     }
+
+    // Periodic sweep: expired consensus windows must not leave the grid stuck
+    // in REPORTING / VERIFIED_OUTAGE forever.
+    this.sweepTimer = window.setInterval(() => this.sweepExpiredStatuses(), 30000);
+  }
+
+  /**
+   * Reset communities whose active-report window has expired back to NORMAL.
+   * A VERIFIED_OUTAGE also gets a TORCH_OFF so citizen lights turn off.
+   */
+  private async sweepExpiredStatuses() {
+    const comms = communityService.getAllCommunities();
+    for (const comm of comms) {
+      if (comm.status !== 'REPORTING' && comm.status !== 'VERIFIED_OUTAGE') continue;
+      const active = this.getActiveReportsForCommunity(comm.id, 'CURRENT_POYI').length;
+      if (active > 0) continue;
+
+      if (comm.status === 'VERIFIED_OUTAGE') {
+        const off: TorchEvent = {
+          id: 'torch_off_exp_' + Date.now() + '_' + comm.id.slice(0, 12),
+          communityId: comm.id,
+          action: 'TORCH_OFF',
+          pattern: '3_BLINKS',
+          createdAt: Date.now(),
+          createdBy: 'CONTROLLER'
+        };
+        await this.handleIncomingTorchEvent(off, true);
+      }
+      await communityService.updateCommunityStatus(comm.id, 'NORMAL', {
+        activeReportsCount: 0,
+        activeRestoresCount: 0
+      });
+    }
   }
 
   private loadInitialStorage() {
@@ -213,16 +248,19 @@ class OutageService {
   }
 
   /**
-   * Get active valid reports inside the sliding time window for a community
+   * Get active valid reports inside the sliding time window for a community.
+   * Reports are aggregated across the geographic cluster (same locality may be
+   * fragmented into multiple community records with slightly different IDs).
    */
   public getActiveReportsForCommunity(communityId: string, type: ReportType): OutageReport[] {
     const comm = communityService.getCommunity(communityId);
     const windowMs = (comm?.timeWindowMinutes || 5) * 60 * 1000;
     const now = Date.now();
+    const nearbyIds = communityService.getNearbyCommunityIds(communityId);
 
-    // Filter by community, type, and valid time window
+    // Filter by nearby community, type, and valid time window
     const validReports = this.reports.filter(r => 
-      r.communityId === communityId &&
+      nearbyIds.includes(r.communityId) &&
       r.type === type &&
       (now - r.createdAt) <= windowMs
     );
@@ -254,11 +292,30 @@ class OutageService {
     const windowMs = (comm?.timeWindowMinutes || 5) * 60 * 1000;
     const now = Date.now();
 
+    const nearbyIds = communityService.getNearbyCommunityIds(communityId);
     const userReports = this.reports
-      .filter(r => r.userId === userId && r.communityId === communityId && (now - r.createdAt) <= windowMs)
+      .filter(r => r.userId === userId && nearbyIds.includes(r.communityId) && (now - r.createdAt) <= windowMs)
       .sort((a, b) => b.createdAt - a.createdAt);
 
     return userReports.length > 0 ? userReports[0].type : null;
+  }
+
+  /**
+   * Retire every previous vote of this user across the locality cluster.
+   * The stale Firestore report docs are deleted too, otherwise the old POYI
+   * vote keeps resurfacing on other devices (and the count never goes down).
+   */
+  private async retireUserReports(userId: string, communityId: string) {
+    const clusterIds = communityService.getNearbyCommunityIds(communityId);
+    const stale = this.reports.filter(r => r.userId === userId && clusterIds.includes(r.communityId));
+    this.reports = this.reports.filter(r => !stale.some(s => s.id === r.id));
+    this.notifyReports();
+
+    if (isLiveFirebaseConfigured) {
+      stale.forEach(r => {
+        deleteDoc(doc(db, 'reports', r.id)).catch(e => console.warn('Report retire notice:', e));
+      });
+    }
   }
 
   /**
@@ -267,8 +324,8 @@ class OutageService {
   public async reportCurrentPoyi(userId: string, userName: string, communityId: string): Promise<{ success: boolean; message: string; verified: boolean }> {
     sounds.playReportClick();
 
-    // Remove any previous active report from this user for this community to allow clean switching
-    this.reports = this.reports.filter(r => !(r.userId === userId && r.communityId === communityId));
+    // Remove any previous active report from this user across the cluster to allow clean switching
+    await this.retireUserReports(userId, communityId);
 
     const report: OutageReport = {
       id: 'rep_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -295,7 +352,7 @@ class OutageService {
     // (default 3) so a single report can NEVER fire flashlights by itself —
     // the minimum number of distinct residents must confirm within the window.
     const activeReports = this.getActiveReportsForCommunity(communityId, 'CURRENT_POYI');
-    const memberCount = Math.max(comm?.memberCount || 1, 1);
+    const memberCount = communityService.getClusterMemberCount(communityId);
     const dynamicThreshold = memberCount <= 2 ? 1 : Math.max(2, Math.ceil(memberCount * 0.3));
     const threshold = Math.max(comm?.outageThreshold || 3, dynamicThreshold);
 
@@ -327,8 +384,8 @@ class OutageService {
   public async reportCurrentVannu(userId: string, userName: string, communityId: string): Promise<{ success: boolean; message: string; restored: boolean }> {
     sounds.playReportClick();
 
-    // Remove any previous active report from this user for this community to allow clean switching
-    this.reports = this.reports.filter(r => !(r.userId === userId && r.communityId === communityId));
+    // Remove any previous active report from this user across the cluster to allow clean switching
+    await this.retireUserReports(userId, communityId);
 
     const report: OutageReport = {
       id: 'rep_res_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -354,11 +411,13 @@ class OutageService {
 
     const activeOutages = this.getActiveReportsForCommunity(communityId, 'CURRENT_POYI');
     const restores = this.getActiveReportsForCommunity(communityId, 'CURRENT_VANNU');
-    const memberCount = Math.max(comm?.memberCount || 1, 1);
-    const dynamicRestore = memberCount <= 2 ? 1 : Math.max(1, Math.ceil(memberCount * 0.3));
-    const restoreThreshold = Math.max(comm?.restoreThreshold || 2, dynamicRestore);
+    const memberCount = communityService.getClusterMemberCount(communityId);
 
-    if (activeOutages.length === 0 || restores.length >= restoreThreshold) {
+    // Restore consensus: every resident who reported the power cut must also
+    // confirm it is back — pressing CURRENT VANNU retires their POYI vote, so
+    // the outage count drops with each input and the grid restores once the
+    // last POYI voter flips their switch.
+    if (activeOutages.length === 0) {
       // AUTOMATICALLY TURN OFF FLASHLIGHTS FOR ALL USERS IN THIS COMMUNITY!
       await this.restorePower(communityId, 'CONSENSUS');
       return { 
@@ -367,13 +426,15 @@ class OutageService {
         restored: true 
       };
     } else {
-      await communityService.updateCommunityStatus(communityId, activeOutages.length >= (memberCount <= 2 ? 1 : 2) ? 'VERIFIED_OUTAGE' : 'REPORTING', {
+      const dynamicThreshold = memberCount <= 2 ? 1 : Math.max(2, Math.ceil(memberCount * 0.3));
+      const poyiThreshold = Math.max(comm?.outageThreshold || 3, dynamicThreshold);
+      await communityService.updateCommunityStatus(communityId, activeOutages.length >= poyiThreshold ? 'VERIFIED_OUTAGE' : 'REPORTING', {
         activeReportsCount: activeOutages.length,
         activeRestoresCount: restores.length
       });
       return { 
         success: true, 
-        message: `🟢 CURRENT VANNU logged (${restores.length}/${restoreThreshold} to restore)`,
+        message: `🟢 CURRENT VANNU recorded — ${activeOutages.length} resident(s) still reporting power cut in ${comm?.name || 'area'}`,
         restored: false 
       };
     }
@@ -436,10 +497,18 @@ class OutageService {
 
     const now = Date.now();
     const comm = communityService.getCommunity(communityId);
+    const clusterIds = communityService.getNearbyCommunityIds(communityId);
 
-    // Clear reports for this community
-    this.reports = this.reports.filter(r => r.communityId !== communityId);
+    // Clear reports for this community cluster
+    const cleared = this.reports.filter(r => clusterIds.includes(r.communityId));
+    this.reports = this.reports.filter(r => !clusterIds.includes(r.communityId));
     this.notifyReports();
+
+    if (isLiveFirebaseConfigured) {
+      cleared.forEach(r => {
+        deleteDoc(doc(db, 'reports', r.id)).catch(e => console.warn('Report clear notice:', e));
+      });
+    }
 
     await communityService.updateCommunityStatus(communityId, 'NORMAL', {
       activeReportsCount: 0,

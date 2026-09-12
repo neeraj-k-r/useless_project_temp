@@ -41,6 +41,14 @@ Open `http://localhost:5173` on your browser or phone on the same local network 
 
 ---
 
+## 🎥 Demo / Review Video
+
+Watch the full walkthrough of Velicham Tharaam in action:
+
+* [Demo & UI Review — screen recording](https://drive.google.com/file/d/10WztcHzcPKLiNSdlvSNPsdHi_Ay9Fns7/view?usp=sharing)
+
+---
+
 ## 📱 Hackathon Presentation Demo Script
 
 ### Quick Demo Switcher (Top of UI)

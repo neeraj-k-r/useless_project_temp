@@ -98,7 +98,8 @@ export const AuthPage: React.FC = () => {
 
   const handleLocalityNameChange = (newName: string) => {
     setLocalityName(newName);
-    const cleanId = newName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24) + '_' + (pincode.slice(-4) || 'hub');
+    const clean = newName.trim();
+    const cleanId = clean.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24) + '_' + (pincode.slice(-4) || 'hub');
     setCommunityId(cleanId);
   };
 
@@ -148,7 +149,7 @@ export const AuthPage: React.FC = () => {
     setSuccessNotice(null);
 
     // Ensure dynamic community is registered in communityService
-    const cleanId = localityName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24) + '_' + (pincode.slice(-4) || 'hub');
+    const cleanId = localityName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24) + '_' + (pincode.slice(-4) || 'hub');
     const dynamicComm: Community = {
       id: cleanId,
       name: localityName.trim() || 'My Locality',
