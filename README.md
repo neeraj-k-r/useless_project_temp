@@ -62,7 +62,7 @@ For Software:
 ![Screenshot1](https://drive.google.com/file/d/1TTEchLSRSWM2Cw6S3BIVRL-7vgNKJJjm/view?usp=sharing)
 *User Dashboard*
 
-![Screenshot2](https://drive.google.com/file/d/1LggXbTdnCGMMX1WWLZQcK9Ab7Toq2pen/view?usp=sharing)
+![Screenshot2](https://drive.google.com/file/d/1TTEchLSRSWM2Cw6S3BIVRL-7vgNKJJjm/view?usp=sharing)
 *Control Panel 1*
 
 ![Screenshot3](https://drive.google.com/file/d/1VCJxJttCPzR02escsz6MlFn8pjnXkm2N/view?usp=sharing)
