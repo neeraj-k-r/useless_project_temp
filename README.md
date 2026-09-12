@@ -59,13 +59,13 @@ For Software:
 
 
 # Screenshots (Add at least 3)
-![Screenshot1](https://drive.google.com/file/d/1TTEchLSRSWM2Cw6S3BIVRL-7vgNKJJjm/view?usp=sharing)
+![Screenshot1](https://drive.google.com/uc?export=view&id=1TTEchLSRSWM2Cw6S3BIVRL-7vgNKJJjm)
 *User Dashboard*
 
-![Screenshot2](https://drive.google.com/file/d/1TTEchLSRSWM2Cw6S3BIVRL-7vgNKJJjm/view?usp=sharing)
+![Screenshot2](https://drive.google.com/uc?export=view&id=1LggXbTdnCGMMX1WWLZQcK9Ab7Toq2pen)
 *Control Panel 1*
 
-![Screenshot3](https://drive.google.com/file/d/1VCJxJttCPzR02escsz6MlFn8pjnXkm2N/view?usp=sharing)
+![Screenshot3](https://drive.google.com/uc?export=view&id=1VCJxJttCPzR02escsz6MlFn8pjnXkm2N)
 *Control Panel 2*
 
 
@@ -76,7 +76,7 @@ For Software:
 
 ### Project Demo
 # Video
-[Demo & UI Review — screen recording](https://drive.google.com/file/d/10WztcHzcPKLiNSdlvSNPsdHi_Ay9Fns7/view?usp=sharing)
+[Demo & UI Review — screen recording](https://drive.google.com/uc?export=view&id=10WztcHzcPKLiNSdlvSNPsdHi_Ay9Fns7)
 *Walkthrough of the outage-report → consensus → synchronized flashlight blink flow*
 
 
