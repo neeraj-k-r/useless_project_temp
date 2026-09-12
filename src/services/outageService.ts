@@ -290,11 +290,14 @@ class OutageService {
       message: `${userName} reported CURRENT POYI in ${comm?.name || 'community'}`,
       communityId
     };
-    // Check consensus based on percentage of registered users in the locality
+    // Check consensus based on percentage of registered users in the locality.
+    // The threshold is floored at the community's configured outageThreshold
+    // (default 3) so a single report can NEVER fire flashlights by itself —
+    // the minimum number of distinct residents must confirm within the window.
     const activeReports = this.getActiveReportsForCommunity(communityId, 'CURRENT_POYI');
     const memberCount = Math.max(comm?.memberCount || 1, 1);
-    // Dynamic percentage threshold: 30% of registered members (minimum 1 for solo/duo, minimum 2 for larger groups)
-    const threshold = memberCount <= 2 ? 1 : Math.max(2, Math.ceil(memberCount * 0.3));
+    const dynamicThreshold = memberCount <= 2 ? 1 : Math.max(2, Math.ceil(memberCount * 0.3));
+    const threshold = Math.max(comm?.outageThreshold || 3, dynamicThreshold);
 
     if (activeReports.length >= threshold) {
       // Threshold reached -> AUTOMATICALLY TRIGGER FLASHLIGHT FOR ALL USERS IN THIS COMMUNITY!
@@ -352,7 +355,8 @@ class OutageService {
     const activeOutages = this.getActiveReportsForCommunity(communityId, 'CURRENT_POYI');
     const restores = this.getActiveReportsForCommunity(communityId, 'CURRENT_VANNU');
     const memberCount = Math.max(comm?.memberCount || 1, 1);
-    const restoreThreshold = memberCount <= 2 ? 1 : Math.max(1, Math.ceil(memberCount * 0.3));
+    const dynamicRestore = memberCount <= 2 ? 1 : Math.max(1, Math.ceil(memberCount * 0.3));
+    const restoreThreshold = Math.max(comm?.restoreThreshold || 2, dynamicRestore);
 
     if (activeOutages.length === 0 || restores.length >= restoreThreshold) {
       // AUTOMATICALLY TURN OFF FLASHLIGHTS FOR ALL USERS IN THIS COMMUNITY!

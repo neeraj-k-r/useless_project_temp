@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc, onSnapshot, collection } from 'firebase/firestore';
 import { db, isLiveFirebaseConfigured } from '../firebase/config';
 import { Community, OutageStatus, UserProfile } from '../types';
+import { getDistrictFallbackCoords } from '../utils/keralaData';
 
 const COMMUNITIES_STORAGE_KEY = 'vt_communities_data_v2';
 
@@ -267,8 +268,9 @@ class CommunityService {
   ): Promise<Community> {
     const cleanId = name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24) + '_' + (pincode.slice(-4) || 'hub');
     
-    const finalLat = lat || (9.9816 + (Math.random() - 0.5) * 0.08);
-    const finalLng = lng || (76.2995 + (Math.random() - 0.5) * 0.08);
+    const fallback = getDistrictFallbackCoords(district);
+    const finalLat = lat ?? fallback.lat;
+    const finalLng = lng ?? fallback.lng;
 
     const newCommunity: Community = {
       id: cleanId,

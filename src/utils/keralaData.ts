@@ -161,6 +161,44 @@ export async function createCommunityFromCoordinates(
 }
 
 /**
+ * Approximate centroids of Kerala districts — used as a sane fallback when
+ * GPS/IP geolocation is unavailable, instead of assuming Kakkanad for everyone.
+ */
+const KERALA_DISTRICT_CENTERS: { [district: string]: { lat: number; lng: number } } = {
+  'Thiruvananthapuram': { lat: 8.5241, lng: 76.9366 },
+  'Kollam': { lat: 8.8932, lng: 76.6141 },
+  'Pathanamthitta': { lat: 9.2648, lng: 76.7870 },
+  'Alappuzha': { lat: 9.4981, lng: 76.3388 },
+  'Kottayam': { lat: 9.5916, lng: 76.5222 },
+  'Idukki': { lat: 9.8499, lng: 76.9600 },
+  'Ernakulam': { lat: 9.9816, lng: 76.2995 },
+  'Thrissur': { lat: 10.5276, lng: 76.2144 },
+  'Palakkad': { lat: 10.7867, lng: 76.6548 },
+  'Malappuram': { lat: 11.0510, lng: 76.0711 },
+  'Kozhikode': { lat: 11.2588, lng: 75.7804 },
+  'Wayanad': { lat: 11.6854, lng: 76.1320 },
+  'Kannur': { lat: 11.8745, lng: 75.3704 },
+  'Kasaragod': { lat: 12.4996, lng: 74.9869 }
+};
+
+export function getDistrictFallbackCoords(district?: string): { lat: number; lng: number } {
+  const center = KERALA_DISTRICT_CENTERS[(district || '').trim()];
+  if (center) return center;
+  return { lat: 9.9816, lng: 76.2995 };
+}
+
+const KERALA_BBOX = { minLat: 8.05, maxLat: 12.8, minLng: 74.5, maxLng: 77.9 };
+
+export function isWithinKerala(lat: number, lng: number): boolean {
+  return (
+    lat >= KERALA_BBOX.minLat &&
+    lat <= KERALA_BBOX.maxLat &&
+    lng >= KERALA_BBOX.minLng &&
+    lng <= KERALA_BBOX.maxLng
+  );
+}
+
+/**
  * Auto detect user's locality via browser GPS with IP-geolocation fallback
  */
 export async function detectUserLocality(existingCommunities: Community[] = []): Promise<{ 
@@ -190,58 +228,70 @@ export async function detectUserLocality(existingCommunities: Community[] = []):
       resolve({ community: dynamicComm, lat, lng, isNewDynamicCommunity: true });
     };
 
-    // Helper for IP-based geolocation fallback
-    const fallbackToIP = async () => {
-      if (resolved) return;
-      try {
-        const res = await fetch('https://ipapi.co/json/');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.latitude && data.longitude) {
-            await resolveWithCoords(data.latitude, data.longitude);
-            return;
-          }
+    // Single GPS attempt helper
+    const tryGps = (highAccuracy: boolean, timeoutMs: number) =>
+      new Promise<{ lat: number; lng: number } | null>((r) => {
+        if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+          r(null);
+          return;
         }
-      } catch (e) {}
+        navigator.geolocation.getCurrentPosition(
+          (pos) => r({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => r(null),
+          { timeout: timeoutMs, enableHighAccuracy: highAccuracy, maximumAge: 2000 }
+        );
+      });
 
-      if (resolved) return;
-      resolved = true;
+    // 1) Accurate GPS lock first (phones often need a few seconds of locking)
+    const precise = await tryGps(true, 6000);
+    if (precise) {
+      await resolveWithCoords(precise.lat, precise.lng);
+      return;
+    }
 
-      if (existingCommunities.length > 0) {
-        resolve({ community: existingCommunities[0], isNewDynamicCommunity: false });
-      } else {
-        const defaultComm: Community = {
-          id: 'kakkanad',
-          name: 'Kakkanad',
-          district: 'Ernakulam',
-          pincode: '682030',
-          lat: 10.0159,
-          lng: 76.3419,
-          status: 'NORMAL',
-          memberCount: 1,
-          activeReportsCount: 0,
-          activeRestoresCount: 0,
-          outageThreshold: 3,
-          restoreThreshold: 2,
-          timeWindowMinutes: 5
-        };
-        resolve({ community: defaultComm, isNewDynamicCommunity: true });
+    // 2) Coarse but quick GPS retry (WiFi/cell-based)
+    const coarse = await tryGps(false, 10000);
+    if (coarse) {
+      await resolveWithCoords(coarse.lat, coarse.lng);
+      return;
+    }
+
+    // 3) IP-geolocation only if it resolves INSIDE Kerala.
+    //    ISP coordinates are often city/state-level — never trust them blindly.
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.latitude && data.longitude && isWithinKerala(data.latitude, data.longitude)) {
+          await resolveWithCoords(data.latitude, data.longitude);
+          return;
+        }
       }
-    };
+    } catch (e) {}
 
-    // 1. Try Browser Geolocation
-    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          await resolveWithCoords(pos.coords.latitude, pos.coords.longitude);
-        },
-        async () => {
-          await fallbackToIP();
-        },
-        { timeout: 8000, enableHighAccuracy: false, maximumAge: 60000 }
-      );
+    if (resolved) return;
+    resolved = true;
+
+    // 4) Last resort: nearest known hub, else a generic Kerala default.
+    if (existingCommunities.length > 0) {
+      resolve({ community: existingCommunities[0], isNewDynamicCommunity: false });
     } else {
-      await fallbackToIP();
+      const defaultComm: Community = {
+        id: 'kakkanad',
+        name: 'Kakkanad',
+        district: 'Ernakulam',
+        pincode: '682030',
+        lat: 10.0159,
+        lng: 76.3419,
+        status: 'NORMAL',
+        memberCount: 1,
+        activeReportsCount: 0,
+        activeRestoresCount: 0,
+        outageThreshold: 3,
+        restoreThreshold: 2,
+        timeWindowMinutes: 5
+      };
+      resolve({ community: defaultComm, isNewDynamicCommunity: true });
     }
   });
 }

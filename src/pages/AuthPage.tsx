@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useCommunity } from '../hooks/useCommunity';
-import { detectUserLocality, createCommunityFromCoordinates } from '../utils/keralaData';
+import { detectUserLocality, createCommunityFromCoordinates, getDistrictFallbackCoords } from '../utils/keralaData';
 import { Community } from '../types';
 
 const KERALA_DISTRICTS = [
@@ -63,6 +63,7 @@ export const AuthPage: React.FC = () => {
   
   const [isDetectingLoc, setIsDetectingLoc] = useState(false);
   const [gpsStatusText, setGpsStatusText] = useState<string | null>(null);
+  const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
@@ -76,9 +77,12 @@ export const AuthPage: React.FC = () => {
     setIsDetectingLoc(true);
     setGpsStatusText('Detecting GPS location...');
     try {
-      const { community, isNewDynamicCommunity } = await detectUserLocality(communities);
+      const { community, isNewDynamicCommunity, lat, lng } = await detectUserLocality(communities);
       if (isNewDynamicCommunity) {
         await addDynamicCommunity(community);
+      }
+      if (lat !== undefined && lng !== undefined) {
+        setDetectedCoords({ lat, lng });
       }
       setCommunityId(community.id);
       setLocalityName(community.name);
@@ -150,8 +154,8 @@ export const AuthPage: React.FC = () => {
       name: localityName.trim() || 'My Locality',
       district: district || 'Ernakulam',
       pincode: pincode.trim() || '682030',
-      lat: 10.0159,
-      lng: 76.3419,
+      lat: detectedCoords?.lat ?? getDistrictFallbackCoords(district).lat,
+      lng: detectedCoords?.lng ?? getDistrictFallbackCoords(district).lng,
       status: 'NORMAL',
       memberCount: 1,
       activeReportsCount: 0,
